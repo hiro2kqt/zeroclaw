@@ -613,16 +613,21 @@ where
 async fn decode_responses_body(response: reqwest::Response) -> anyhow::Result<String> {
     let mut body = String::new();
     let mut pending_utf8 = Vec::new();
-    let mut stream = response.bytes_stream();
     let mut chunk_count = 0;
     let mut total_bytes = 0;
     let start = std::time::Instant::now();
 
+    // Capture status and headers before consuming response
+    let status = response.status();
+    let headers = format!("{:?}", response.headers());
+
     tracing::debug!(
-        "Starting OpenAI Codex stream decode (status={}, headers={:?})",
-        response.status(),
-        response.headers()
+        "Starting OpenAI Codex stream decode (status={}, headers={})",
+        status,
+        headers
     );
+
+    let mut stream = response.bytes_stream();
 
     while let Some(chunk) = stream.next().await {
         chunk_count += 1;

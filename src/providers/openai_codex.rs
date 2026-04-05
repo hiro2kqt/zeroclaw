@@ -627,25 +627,58 @@ async fn decode_responses_body(response: reqwest::Response) -> anyhow::Result<St
         headers
     );
 
+    // Log status even for "successful" responses to diagnose issues
+    if !status.is_success() {
+        tracing::warn!(
+            "OpenAI Codex returned non-success status: {}",
+            status
+        );
+    }
+
     let mut stream = response.bytes_stream();
 
     while let Some(chunk) = stream.next().await {
         chunk_count += 1;
         let bytes = chunk.map_err(|err| {
             let elapsed = start.elapsed();
+            let err_kind = if err.is_timeout() {
+                "timeout"
+            } else if err.is_connect() {
+                "connection"
+            } else if err.is_body() {
+                "body_stream"
+            } else {
+                "other"
+            };
+
             tracing::error!(
                 chunk_count,
                 total_bytes,
                 elapsed_ms = elapsed.as_millis(),
+                error_kind = err_kind,
                 error = %err,
+                status = %status,
                 "OpenAI Codex stream chunk read failed"
             );
-            anyhow::anyhow!("error reading OpenAI Codex response stream: {err}")
+            anyhow::anyhow!(
+                "error reading OpenAI Codex response stream (status={}, chunk={}, kind={}): {}",
+                status, chunk_count, err_kind, err
+            )
         })?;
         
         let chunk_size = bytes.len();
         total_bytes += chunk_size;
-        
+
+        // Log first chunk to help diagnose what we're receiving
+        if chunk_count == 1 {
+            let preview = String::from_utf8_lossy(&bytes[..bytes.len().min(200)]);
+            tracing::debug!(
+                chunk_size,
+                preview = %preview,
+                "First chunk received from OpenAI Codex"
+            );
+        }
+
         tracing::trace!(
             chunk_count,
             chunk_size,
@@ -653,7 +686,7 @@ async fn decode_responses_body(response: reqwest::Response) -> anyhow::Result<St
             elapsed_ms = start.elapsed().as_millis(),
             "Received stream chunk"
         );
-        
+
         append_utf8_stream_chunk(&mut body, &mut pending_utf8, &bytes)?;
     }
 
@@ -837,7 +870,27 @@ impl OpenAiCodexProvider {
             }
         }
 
-        let response = request_builder.json(&request).send().await?;
+        let response = request_builder.json(&request).send().await.map_err(|err| {
+            let err_kind = if err.is_timeout() {
+                "timeout"
+            } else if err.is_connect() {
+                "connection_failed"
+            } else if err.is_request() {
+                "request_error"
+            } else {
+                "unknown"
+            };
+
+            tracing::error!(
+                url = %self.responses_url,
+                error_kind = err_kind,
+                error = %err,
+                "OpenAI Codex request failed"
+            );
+
+            anyhow::anyhow!("error sending request for url ({}): {} (kind: {})",
+                self.responses_url, err, err_kind)
+        })?;
 
         if !response.status().is_success() {
             return Err(super::api_error("OpenAI Codex", response).await);

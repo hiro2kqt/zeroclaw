@@ -374,24 +374,57 @@ fn parse_sse_text(body: &str) -> anyhow::Result<Option<String>> {
     let mut delta_accumulator = String::new();
     let mut fallback_text = None;
     let mut buffer = body.to_string();
+    let mut event_count = 0;
+    let mut chunk_count = 0;
+
+    tracing::trace!(
+        body_length = body.len(),
+        "Starting SSE text parsing"
+    );
 
     let mut process_event = |event: Value| -> anyhow::Result<()> {
+        event_count += 1;
+        let event_type = event.get("type").and_then(Value::as_str);
+        
+        tracing::trace!(
+            event_count,
+            event_type,
+            "Processing SSE event"
+        );
+        
         if let Some(message) = extract_stream_error_message(&event) {
+            tracing::error!(
+                event_count,
+                error_message = %message,
+                "OpenAI Codex stream error event"
+            );
             return Err(anyhow::anyhow!("OpenAI Codex stream error: {message}"));
         }
         if let Some(text) = extract_stream_event_text(&event, saw_delta) {
-            let event_type = event.get("type").and_then(Value::as_str);
+            let text_length = text.len();
             if event_type == Some("response.output_text.delta") {
                 saw_delta = true;
                 delta_accumulator.push_str(&text);
+                tracing::trace!(
+                    event_count,
+                    delta_length = text_length,
+                    total_delta_length = delta_accumulator.len(),
+                    "Accumulated delta text"
+                );
             } else if fallback_text.is_none() {
                 fallback_text = Some(text);
+                tracing::trace!(
+                    event_count,
+                    fallback_text_length = text_length,
+                    "Set fallback text"
+                );
             }
         }
         Ok(())
     };
 
     let mut process_chunk = |chunk: &str| -> anyhow::Result<()> {
+        chunk_count += 1;
         let data_lines: Vec<String> = chunk
             .lines()
             .filter_map(|line| line.strip_prefix("data:"))
@@ -404,12 +437,19 @@ fn parse_sse_text(body: &str) -> anyhow::Result<Option<String>> {
         let joined = data_lines.join("\n");
         let trimmed = joined.trim();
         if trimmed.is_empty() || trimmed == "[DONE]" {
+            tracing::trace!(chunk_count, "Skipping empty or [DONE] chunk");
             return Ok(());
         }
 
         if let Ok(event) = serde_json::from_str::<Value>(trimmed) {
             return process_event(event);
         }
+
+        tracing::trace!(
+            chunk_count,
+            data_line_count = data_lines.len(),
+            "Processing multi-line data chunk"
+        );
 
         for line in data_lines {
             let line = line.trim();
@@ -418,6 +458,12 @@ fn parse_sse_text(body: &str) -> anyhow::Result<Option<String>> {
             }
             if let Ok(event) = serde_json::from_str::<Value>(line) {
                 process_event(event)?;
+            } else {
+                tracing::warn!(
+                    chunk_count,
+                    line_preview = &line.chars().take(100).collect::<String>(),
+                    "Failed to parse SSE data line as JSON"
+                );
             }
         }
 
@@ -435,8 +481,21 @@ fn parse_sse_text(body: &str) -> anyhow::Result<Option<String>> {
     }
 
     if !buffer.trim().is_empty() {
+        tracing::trace!(
+            remaining_buffer_length = buffer.len(),
+            "Processing final buffer chunk"
+        );
         process_chunk(&buffer)?;
     }
+
+    tracing::debug!(
+        chunk_count,
+        event_count,
+        saw_delta,
+        delta_length = delta_accumulator.len(),
+        has_fallback = fallback_text.is_some(),
+        "Completed SSE text parsing"
+    );
 
     if saw_delta {
         return Ok(nonempty_preserve(Some(&delta_accumulator)));
@@ -555,41 +614,109 @@ async fn decode_responses_body(response: reqwest::Response) -> anyhow::Result<St
     let mut body = String::new();
     let mut pending_utf8 = Vec::new();
     let mut stream = response.bytes_stream();
+    let mut chunk_count = 0;
+    let mut total_bytes = 0;
+    let start = std::time::Instant::now();
+
+    tracing::debug!(
+        "Starting OpenAI Codex stream decode (status={}, headers={:?})",
+        response.status(),
+        response.headers()
+    );
 
     while let Some(chunk) = stream.next().await {
-        let bytes = chunk
-            .map_err(|err| anyhow::anyhow!("error reading OpenAI Codex response stream: {err}"))?;
+        chunk_count += 1;
+        let bytes = chunk.map_err(|err| {
+            let elapsed = start.elapsed();
+            tracing::error!(
+                chunk_count,
+                total_bytes,
+                elapsed_ms = elapsed.as_millis(),
+                error = %err,
+                "OpenAI Codex stream chunk read failed"
+            );
+            anyhow::anyhow!("error reading OpenAI Codex response stream: {err}")
+        })?;
+        
+        let chunk_size = bytes.len();
+        total_bytes += chunk_size;
+        
+        tracing::trace!(
+            chunk_count,
+            chunk_size,
+            total_bytes,
+            elapsed_ms = start.elapsed().as_millis(),
+            "Received stream chunk"
+        );
+        
         append_utf8_stream_chunk(&mut body, &mut pending_utf8, &bytes)?;
     }
+
+    let elapsed = start.elapsed();
+    tracing::debug!(
+        chunk_count,
+        total_bytes,
+        elapsed_ms = elapsed.as_millis(),
+        body_length = body.len(),
+        pending_utf8_length = pending_utf8.len(),
+        "OpenAI Codex stream completed"
+    );
 
     if !pending_utf8.is_empty() {
         let err = std::str::from_utf8(&pending_utf8)
             .expect_err("pending bytes should be invalid UTF-8 at end of stream");
+        tracing::error!(
+            pending_utf8_length = pending_utf8.len(),
+            error = %err,
+            "OpenAI Codex response ended with incomplete UTF-8"
+        );
         return Err(anyhow::anyhow!(
             "OpenAI Codex response ended with incomplete UTF-8: {err}"
         ));
     }
 
+    tracing::trace!(
+        body_preview = &body.chars().take(200).collect::<String>(),
+        "Parsing SSE text from body"
+    );
+
     if let Some(text) = parse_sse_text(&body)? {
+        tracing::debug!(
+            text_length = text.len(),
+            "Successfully parsed SSE stream"
+        );
         return Ok(text);
     }
 
     let body_trimmed = body.trim_start();
     let looks_like_sse = body_trimmed.starts_with("event:") || body_trimmed.starts_with("data:");
     if looks_like_sse {
+        tracing::error!(
+            body_preview = &body.chars().take(500).collect::<String>(),
+            "SSE stream payload contains no extractable response"
+        );
         return Err(anyhow::anyhow!(
             "No response from OpenAI Codex stream payload: {}",
             super::sanitize_api_error(&body)
         ));
     }
 
+    tracing::debug!("Attempting to parse non-SSE JSON response");
     let parsed: ResponsesResponse = serde_json::from_str(&body).map_err(|err| {
+        tracing::error!(
+            error = %err,
+            body_preview = &body.chars().take(500).collect::<String>(),
+            "OpenAI Codex JSON parse failed"
+        );
         anyhow::anyhow!(
             "OpenAI Codex JSON parse failed: {err}. Payload: {}",
             super::sanitize_api_error(&body)
         )
     })?;
-    extract_responses_text(&parsed).ok_or_else(|| anyhow::anyhow!("No response from OpenAI Codex"))
+    extract_responses_text(&parsed).ok_or_else(|| {
+        tracing::error!("No text extracted from parsed JSON response");
+        anyhow::anyhow!("No response from OpenAI Codex")
+    })
 }
 
 impl OpenAiCodexProvider {

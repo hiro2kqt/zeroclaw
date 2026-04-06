@@ -2748,7 +2748,7 @@ impl Channel for TelegramChannel {
 
         match delete_resp {
             Ok(resp) if resp.status().is_success() => {
-                self.send_text_chunks(text, &chat_id, thread_id.as_deref())
+                self.send_text_chunks(text, &chat_id, thread_id.as_deref(), None)
                     .await
             }
             Ok(resp) => {

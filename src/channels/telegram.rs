@@ -311,6 +311,84 @@ fn parse_attachment_markers(message: &str) -> (String, Vec<TelegramAttachment>) 
     (cleaned.trim().to_string(), attachments)
 }
 
+/// Parse button markers from message text.
+/// Returns (cleaned_text, button_rows).
+///
+/// Syntax:
+/// ```
+/// Message text here
+///
+/// [BUTTONS]
+/// [Text|callback_data] [Text2|callback_data2]
+/// [Text3|callback_data3]
+/// [BUTTONS]
+/// ```
+fn parse_button_markers(message: &str) -> (String, Vec<Vec<super::traits::Button>>) {
+    let Some(start) = message.find("[BUTTONS]") else {
+        return (message.to_string(), vec![]);
+    };
+
+    let search_area = &message[start + "[BUTTONS]".len()..];
+    let Some(end_rel) = search_area.find("[BUTTONS]") else {
+        return (message.to_string(), vec![]);
+    };
+
+    let end = start + "[BUTTONS]".len() + end_rel;
+    let buttons_block = &message[start + "[BUTTONS]".len()..end];
+
+    let mut button_rows = Vec::new();
+
+    for line in buttons_block.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        let mut row = Vec::new();
+        let mut cursor = 0;
+
+        while cursor < line.len() {
+            let Some(open_rel) = line[cursor..].find('[') else {
+                break;
+            };
+
+            let open = cursor + open_rel;
+            let Some(close_rel) = line[open + 1..].find(']') else {
+                break;
+            };
+
+            let close = open + 1 + close_rel;
+            let button_content = &line[open + 1..close];
+
+            if let Some((text, data)) = button_content.split_once('|') {
+                let text = text.trim().to_string();
+                let data = data.trim().to_string();
+
+                if !text.is_empty() && !data.is_empty() {
+                    if data.starts_with("http://") || data.starts_with("https://") {
+                        row.push(super::traits::Button::url(text, data));
+                    } else {
+                        row.push(super::traits::Button::new(text, data));
+                    }
+                }
+            }
+
+            cursor = close + 1;
+        }
+
+        if !row.is_empty() {
+            button_rows.push(row);
+        }
+    }
+
+    // Remove the entire [BUTTONS]...[BUTTONS] block from message
+    let before = &message[..start];
+    let after = &message[end + "[BUTTONS]".len()..];
+    let cleaned = format!("{}{}", before.trim_end(), after.trim_start()).trim().to_string();
+
+    (cleaned, button_rows)
+}
+
 /// Telegram Bot API maximum file download size (20 MB).
 const TELEGRAM_MAX_FILE_DOWNLOAD_BYTES: u64 = 20 * 1024 * 1024;
 
@@ -2802,6 +2880,16 @@ impl Channel for TelegramChannel {
         // Strip tool_call tags before processing to prevent Markdown parsing failures
         let content = strip_tool_call_tags(&message.content);
 
+        // Parse button markers from content
+        let (content, parsed_buttons) = parse_button_markers(&content);
+
+        // Merge parsed buttons with programmatically-provided buttons
+        let buttons = if !parsed_buttons.is_empty() {
+            parsed_buttons
+        } else {
+            message.buttons.clone()
+        };
+
         // Parse recipient: "chat_id" or "chat_id:thread_id" format
         let (chat_id, thread_id) = match message.recipient.split_once(':') {
             Some((chat, thread)) => (chat, Some(thread)),
@@ -2889,10 +2977,10 @@ impl Channel for TelegramChannel {
         let (text_without_markers, attachments) = parse_attachment_markers(&content);
 
         // Prepare buttons for inline keyboard
-        let buttons_ref = if message.buttons.is_empty() {
+        let buttons_ref = if buttons.is_empty() {
             None
         } else {
-            Some(message.buttons.as_slice())
+            Some(buttons.as_slice())
         };
 
         if !attachments.is_empty() {
@@ -5430,5 +5518,80 @@ mod tests {
         assert_eq!(btn.text, "Visit site");
         assert_eq!(btn.url, Some("https://example.com".to_string()));
         assert_eq!(btn.callback_data, "");
+    }
+
+    #[test]
+    fn parse_button_markers_single_row() {
+        let message = "Choose an option:\n\n[BUTTONS]\n[Yes|yes] [No|no]\n[BUTTONS]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Choose an option:");
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].len(), 2);
+        assert_eq!(buttons[0][0].text, "Yes");
+        assert_eq!(buttons[0][0].callback_data, "yes");
+        assert_eq!(buttons[0][1].text, "No");
+        assert_eq!(buttons[0][1].callback_data, "no");
+    }
+
+    #[test]
+    fn parse_button_markers_multiple_rows() {
+        let message = "Select:\n\n[BUTTONS]\n[Option 1|opt1]\n[Option 2|opt2]\n[Cancel|cancel]\n[BUTTONS]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Select:");
+        assert_eq!(buttons.len(), 3);
+        assert_eq!(buttons[0][0].text, "Option 1");
+        assert_eq!(buttons[1][0].text, "Option 2");
+        assert_eq!(buttons[2][0].text, "Cancel");
+    }
+
+    #[test]
+    fn parse_button_markers_with_url() {
+        let message = "Check this:\n\n[BUTTONS]\n[Visit|https://example.com] [Callback|action]\n[BUTTONS]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Check this:");
+        assert_eq!(buttons.len(), 1);
+        assert_eq!(buttons[0].len(), 2);
+        assert_eq!(buttons[0][0].url, Some("https://example.com".to_string()));
+        assert_eq!(buttons[0][1].callback_data, "action");
+    }
+
+    #[test]
+    fn parse_button_markers_no_markers() {
+        let message = "Just regular text";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Just regular text");
+        assert!(buttons.is_empty());
+    }
+
+    #[test]
+    fn parse_button_markers_incomplete_markers() {
+        let message = "Text [BUTTONS]\n[Yes|yes]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Text [BUTTONS]\n[Yes|yes]");
+        assert!(buttons.is_empty());
+    }
+
+    #[test]
+    fn parse_button_markers_empty_block() {
+        let message = "Text\n\n[BUTTONS]\n\n[BUTTONS]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Text");
+        assert!(buttons.is_empty());
+    }
+
+    #[test]
+    fn parse_button_markers_with_emojis() {
+        let message = "Pick:\n[BUTTONS]\n[✅ Yes|yes] [❌ No|no]\n[BUTTONS]";
+        let (cleaned, buttons) = parse_button_markers(message);
+
+        assert_eq!(cleaned, "Pick:");
+        assert_eq!(buttons[0][0].text, "✅ Yes");
+        assert_eq!(buttons[0][1].text, "❌ No");
     }
 }

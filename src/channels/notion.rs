@@ -362,6 +362,7 @@ impl Channel for NotionChannel {
                                 thread_ts: None,
                                 interruption_scope_id: None,
                                 attachments: vec![],
+                                callback_data: None,
                             })
                             .await
                             .is_err()

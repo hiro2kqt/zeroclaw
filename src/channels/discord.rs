@@ -1216,6 +1216,7 @@ impl Channel for DiscordChannel {
                         thread_ts: None,
                         interruption_scope_id: None,
                     attachments: vec![],
+                    callback_data: None,
                     };
 
                     if tx.send(channel_msg).await.is_err() {

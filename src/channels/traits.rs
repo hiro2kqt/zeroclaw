@@ -1,6 +1,37 @@
 use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 
+/// A button to display in a message (inline keyboard)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Button {
+    /// Button display text
+    pub text: String,
+    /// Callback data sent when button is clicked
+    pub callback_data: String,
+    /// Optional URL to open when button is clicked (mutually exclusive with callback_data)
+    pub url: Option<String>,
+}
+
+impl Button {
+    /// Create a new callback button
+    pub fn new(text: impl Into<String>, callback_data: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            callback_data: callback_data.into(),
+            url: None,
+        }
+    }
+
+    /// Create a new URL button
+    pub fn url(text: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            callback_data: String::new(),
+            url: Some(url.into()),
+        }
+    }
+}
+
 /// A message received from or sent to a channel
 #[derive(Debug, Clone)]
 pub struct ChannelMessage {
@@ -22,6 +53,9 @@ pub struct ChannelMessage {
     /// Channels populate this when they receive media alongside a text message.
     /// Defaults to empty — existing channels are unaffected.
     pub attachments: Vec<super::media_pipeline::MediaAttachment>,
+    /// Callback data from inline button click (Telegram callback_query).
+    /// When set, this message represents a button click rather than a text message.
+    pub callback_data: Option<String>,
 }
 
 /// Message to send through a channel
@@ -37,6 +71,10 @@ pub struct SendMessage {
     /// File attachments to send with the message.
     /// Channels that don't support attachments ignore this field.
     pub attachments: Vec<super::media_pipeline::MediaAttachment>,
+    /// Inline buttons to display with the message.
+    /// Each inner Vec represents a row of buttons.
+    /// Channels that don't support buttons ignore this field.
+    pub buttons: Vec<Vec<Button>>,
 }
 
 impl SendMessage {
@@ -49,6 +87,7 @@ impl SendMessage {
             thread_ts: None,
             cancellation_token: None,
             attachments: vec![],
+            buttons: vec![],
         }
     }
 
@@ -65,6 +104,7 @@ impl SendMessage {
             thread_ts: None,
             cancellation_token: None,
             attachments: vec![],
+            buttons: vec![],
         }
     }
 
@@ -86,6 +126,13 @@ impl SendMessage {
         attachments: Vec<super::media_pipeline::MediaAttachment>,
     ) -> Self {
         self.attachments = attachments;
+        self
+    }
+
+    /// Attach inline buttons to this message.
+    /// Each inner Vec represents a row of buttons.
+    pub fn with_buttons(mut self, buttons: Vec<Vec<Button>>) -> Self {
+        self.buttons = buttons;
         self
     }
 }
@@ -257,6 +304,7 @@ mod tests {
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             })
             .await
             .map_err(|e| anyhow::anyhow!(e.to_string()))
@@ -275,6 +323,7 @@ mod tests {
             thread_ts: None,
             interruption_scope_id: None,
             attachments: vec![],
+            callback_data: None,
         };
 
         let cloned = message.clone();

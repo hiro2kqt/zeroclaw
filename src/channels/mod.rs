@@ -6960,6 +6960,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7050,6 +7051,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7154,6 +7156,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7243,6 +7246,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7342,6 +7346,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7462,6 +7467,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7563,6 +7569,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7679,6 +7686,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7783,6 +7791,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -7877,6 +7886,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -8571,6 +8581,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -8658,6 +8669,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -8745,6 +8757,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9537,6 +9550,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9554,6 +9568,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9678,6 +9693,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9711,6 +9727,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9750,6 +9767,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9862,6 +9880,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -9978,6 +9997,7 @@ BTC is currently around $65,000 based on latest tool output."#
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10566,6 +10586,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10661,6 +10682,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10678,6 +10700,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10791,6 +10814,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10808,6 +10832,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -10965,6 +10990,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -11085,6 +11111,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -11197,6 +11224,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )
@@ -11329,6 +11357,7 @@ This is an example JSON object for profile settings."#;
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             },
             CancellationToken::new(),
         )

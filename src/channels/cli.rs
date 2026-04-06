@@ -50,6 +50,7 @@ impl Channel for CliChannel {
                 thread_ts: None,
                 interruption_scope_id: None,
                 attachments: vec![],
+                callback_data: None,
             };
 
             if tx.send(msg).await.is_err() {
@@ -119,6 +120,7 @@ mod tests {
             thread_ts: None,
             interruption_scope_id: None,
             attachments: vec![],
+            callback_data: None,
         };
         assert_eq!(msg.id, "test-id");
         assert_eq!(msg.sender, "user");
@@ -140,6 +142,7 @@ mod tests {
             thread_ts: None,
             interruption_scope_id: None,
             attachments: vec![],
+            callback_data: None,
         };
         let cloned = msg.clone();
         assert_eq!(cloned.id, msg.id);

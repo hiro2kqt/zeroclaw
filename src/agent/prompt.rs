@@ -55,6 +55,7 @@ impl SystemPromptBuilder {
                 Box::new(WorkspaceSection),
                 Box::new(RuntimeSection),
                 Box::new(ChannelMediaSection),
+                Box::new(TelegramButtonsSection),
             ],
         }
     }
@@ -87,6 +88,7 @@ pub struct WorkspaceSection;
 pub struct RuntimeSection;
 pub struct DateTimeSection;
 pub struct ChannelMediaSection;
+pub struct TelegramButtonsSection;
 
 impl PromptSection for IdentitySection {
     fn name(&self) -> &str {
@@ -292,6 +294,68 @@ impl PromptSection for ChannelMediaSection {
             - `[Voice] <text>` — The user sent a voice/audio message that has already been transcribed to text. Respond to the transcribed content directly.\n\
             - `[IMAGE:<path>]` — An image attachment, processed by the vision pipeline.\n\
             - `[Document: <name>] <path>` — A file attachment saved to the workspace."
+            .into())
+    }
+}
+
+impl PromptSection for TelegramButtonsSection {
+    fn name(&self) -> &str {
+        "telegram_buttons"
+    }
+
+    fn build(&self, _ctx: &PromptContext<'_>) -> Result<String> {
+        Ok("## Telegram Interactive Buttons\n\n\
+            On Telegram, you can send interactive inline buttons with your messages using this syntax:\n\n\
+            ```\n\
+            Your message text here.\n\n\
+            [BUTTONS]\n\
+            [Button Text|callback_data] [Another Button|callback_data]\n\
+            [Third Button|callback_data]\n\
+            [BUTTONS]\n\
+            ```\n\n\
+            **Format Rules:**\n\
+            - Each line between `[BUTTONS]` markers represents one row of buttons\n\
+            - Multiple buttons on the same line appear side-by-side horizontally\n\
+            - `[Text|callback_data]` creates a callback button\n\
+            - `[Text|https://url]` creates a URL button (opens in browser)\n\
+            - Keep button text under 20 characters for best display\n\
+            - Callback data must be unique, no spaces, max 64 bytes\n\
+            - Maximum 8 rows recommended\n\n\
+            **When to use buttons:**\n\
+            - Yes/No confirmations\n\
+            - Multiple choice questions\n\
+            - Quick action menus (stats, settings, help)\n\
+            - Pagination (next/previous)\n\
+            - Reminders with action buttons (done, snooze, dismiss)\n\n\
+            **Example - Confirmation:**\n\
+            ```\n\
+            Are you ready to proceed?\n\n\
+            [BUTTONS]\n\
+            [✅ Yes|confirm_yes] [❌ No|confirm_no]\n\
+            [BUTTONS]\n\
+            ```\n\n\
+            **Example - Menu:**\n\
+            ```\n\
+            What would you like to do?\n\n\
+            [BUTTONS]\n\
+            [📊 View Stats|action_stats]\n\
+            [⚙️ Settings|action_settings]\n\
+            [📝 View Logs|action_logs]\n\
+            [BUTTONS]\n\
+            ```\n\n\
+            **Example - Reminder with action:**\n\
+            ```\n\
+            ⏰ Time to take your medication!\n\n\
+            [BUTTONS]\n\
+            [✅ Taken|med_taken] [⏰ Snooze 10min|med_snooze]\n\
+            [BUTTONS]\n\
+            ```\n\n\
+            **Handling button clicks:**\n\
+            When a user clicks a button, you will receive a message like: `[Button: callback_data]`\n\
+            Respond naturally based on the callback data. For example:\n\
+            - `[Button: confirm_yes]` → \"Great! Starting the process...\"\n\
+            - `[Button: med_taken]` → \"Recorded! Medication logged for [current time].\"\n\n\
+            **Important:** Buttons only work on Telegram channel. For other platforms (Discord, Slack), they will be ignored silently."
             .into())
     }
 }
